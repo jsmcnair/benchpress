@@ -82,13 +82,13 @@ func client(url string, numRequests int, sleep time.Duration, counter *atomic.Ui
 		var resp *http.Response
 		req, _ := http.NewRequest("GET", url, nil)
 		resp, err := httpClient.Do(req)
-		io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-		if err != nil {
-			fmt.Println("Error making request: ", err)
-		} else {
+
+		if err == nil {
+			io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
 			counter.Add(1)
 		}
+
 		time.Sleep(sleep)
 	}
 }
