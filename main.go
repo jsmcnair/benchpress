@@ -39,7 +39,8 @@ func main() {
 	var counter atomic.Uint64
 	var wg sync.WaitGroup
 
-	fmt.Println("Making requests...\n")
+	fmt.Println("Making requests...")
+	fmt.Println("")
 
 	startTime := time.Now()
 	for range *numClients {
