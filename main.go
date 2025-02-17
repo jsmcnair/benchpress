@@ -36,7 +36,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	var counter atomic.Uint64
+	var statusCounts = make(map[int]*atomic.Uint64)
 	var wg sync.WaitGroup
 
 	fmt.Println("Making requests...")
@@ -47,7 +47,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client(*url, *numRequests, sleepTime, &counter)
+			client(*url, *numRequests, sleepTime, statusCounts)
 		}()
 	}
 	wg.Wait()
@@ -55,13 +55,15 @@ func main() {
 
 	timeTaken := finishTime.Sub(startTime)
 
-	successfulRequests := counter.Load()
+	successfulRequests := summariseStatusCounts(statusCounts, totalRequests)
+	fmt.Println()
 	fmt.Printf("Success: %d/%d\n", successfulRequests, totalRequests)
 	fmt.Printf("Time taken: %v\n", timeTaken)
-	fmt.Printf("Requests per second: %f", float64(successfulRequests)/finishTime.Sub(startTime).Seconds())
+	fmt.Printf("Successful requests per second: %f\n", float64(successfulRequests)/finishTime.Sub(startTime).Seconds())
+	fmt.Printf("Total requests per second: %f", float64(totalRequests)/finishTime.Sub(startTime).Seconds())
 }
 
-func client(url string, numRequests int, sleep time.Duration, counter *atomic.Uint64) {
+func client(url string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64) {
 
 	// shared HTTP transport and client for efficient connection reuse
 	tr := &http.Transport{
@@ -87,11 +89,32 @@ func client(url string, numRequests int, sleep time.Duration, counter *atomic.Ui
 		if err == nil {
 			io.Copy(io.Discard, resp.Body)
 			resp.Body.Close()
-			counter.Add(1)
+			countResponseStatusCode(resp.StatusCode, statusCounts)
 		}
 
 		time.Sleep(sleep)
 	}
+}
+
+func countResponseStatusCode(code int, statusCounts map[int]*atomic.Uint64) {
+	if _, ok := statusCounts[code]; !ok {
+		statusCounts[code] = &atomic.Uint64{}
+	}
+	statusCounts[code].Add(1)
+}
+
+func summariseStatusCounts(statusCounts map[int]*atomic.Uint64, totalRequests int) uint64 {
+	var successfulRequests uint64
+	
+	fmt.Println("Response counts by status code:")
+	for code, count := range statusCounts {
+		loaded := count.Load()
+		if code == 200 {
+			successfulRequests = loaded
+		}
+		fmt.Printf("%d: %d/%d (%f)\n", code, loaded, totalRequests, float64(loaded)/float64(totalRequests)*100)
+	}
+	return successfulRequests
 }
 
 func server() {
