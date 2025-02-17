@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: benchpress
+  labels:
+    app: benchpress
+spec:
+  completions: 1
+  parallelism: 1
+  template:
+    metadata:
+      labels:
+        app: benchpress
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: benchpress
+        image: docker.io/jsmcnair/benchpress:latest
+        imagePullPolicy: IfNotPresent
+        args: ["-c", "100", "-n", "10", "-s", "0", "-u", "http://<in_cluster_endpoint>" ]
