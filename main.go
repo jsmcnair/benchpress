@@ -4,38 +4,41 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
-	"os"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
 func main() {
-	numClients := flag.Int("c", 1, "Number of client to create")
-	numRequests := flag.Int("n", 1, "Number of requests to make per client")
-	sleep := flag.String("s", "0s", "Time to sleep between requests")
-	url := flag.String("u", "", "URL to make requests to")
+	numClients := flag.Int("c", 1, "Number of client to create. Defaults to 1.")
+	numRequests := flag.Int("n", 1, "Number of requests to make per client. Defaults to 1.")
+	sleep := flag.Duration("s", time.Millisecond, "Time to sleep between requests. Defaults to 1 millisecond.")
+	rps := flag.Int("r", 0, "Requests per second to attempt to make per client. Defaults to 0.")
+	url := flag.String("u", "", "URL to make requests to. If not passed, a local built-in server is created and requests are sent to that.")
 	flag.Parse()
 	totalRequests := *numClients * *numRequests
 
 	fmt.Println("Number of clients: ", *numClients)
 	fmt.Println("Number of requests per client: ", *numRequests)
-	fmt.Println("Sleep time: ", *sleep)
 	fmt.Println("Total requests: ", totalRequests)
+
+
+	var tickTime time.Duration
+	if *rps == 0 {	
+		tickTime = *sleep
+	} else {
+		fmt.Println("Requests per second per client: ", *rps)
+		tickTime = time.Duration(1e9 / *rps)
+	}
 
 	if *url == "" {
 		fmt.Println("URL flag not passed, using built-in server.")
 		go server()
 		*url = "http://localhost:8080"
 	}
-
-	sleepTime, err := time.ParseDuration(*sleep)
-	if err != nil {
-		fmt.Println("Error parsing sleep time: ", err)
-		os.Exit(1)
-	}
-
+	
 	var statusCounts = make(map[int]*atomic.Uint64)
 	var wg sync.WaitGroup
 
@@ -47,24 +50,24 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client(*url, *numRequests, sleepTime, statusCounts)
+			client(*url, *numRequests, tickTime, statusCounts)
 		}()
 	}
 	wg.Wait()
 	finishTime := time.Now()
 
 	timeTaken := finishTime.Sub(startTime)
+	
 
 	successfulRequests := summariseStatusCounts(statusCounts, totalRequests)
 	fmt.Println()
 	fmt.Printf("Success: %d/%d\n", successfulRequests, totalRequests)
-	fmt.Printf("Time taken: %v\n", timeTaken)
+	fmt.Printf("Time taken: %s\n", timeTaken.String())
 	fmt.Printf("Successful requests per second: %f\n", float64(successfulRequests)/finishTime.Sub(startTime).Seconds())
 	fmt.Printf("Total requests per second: %f", float64(totalRequests)/finishTime.Sub(startTime).Seconds())
 }
 
 func client(url string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64) {
-
 	// shared HTTP transport and client for efficient connection reuse
 	tr := &http.Transport{
 		MaxIdleConns:          10,
@@ -80,6 +83,9 @@ func client(url string, numRequests int, sleep time.Duration, statusCounts map[i
 			return http.ErrUseLastResponse
 		},
 	}
+	defer httpClient.CloseIdleConnections()
+	
+	t := time.NewTicker(sleep)
 
 	for i := 0; i < numRequests; i++ {
 		var resp *http.Response
@@ -91,9 +97,9 @@ func client(url string, numRequests int, sleep time.Duration, statusCounts map[i
 			resp.Body.Close()
 			countResponseStatusCode(resp.StatusCode, statusCounts)
 		}
-
-		time.Sleep(sleep)
+		<-t.C
 	}
+	t.Stop()
 }
 
 func countResponseStatusCode(code int, statusCounts map[int]*atomic.Uint64) {
@@ -112,7 +118,7 @@ func summariseStatusCounts(statusCounts map[int]*atomic.Uint64, totalRequests in
 		if code == 200 {
 			successfulRequests = loaded
 		}
-		fmt.Printf("%d: %d/%d (%f)\n", code, loaded, totalRequests, float64(loaded)/float64(totalRequests)*100)
+		fmt.Printf("\t%d: %d/%d (%.2f%%)\n", code, loaded, totalRequests, float64(loaded)/float64(totalRequests)*100)
 	}
 	return successfulRequests
 }
@@ -122,6 +128,5 @@ func server() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "")
 	})
-	http.ListenAndServe(":8080", nil)
-	fmt.Print("Server started on port 8080")
+	log.Fatal(http.ListenAndServe(":8080", nil))
 }
