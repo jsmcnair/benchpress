@@ -9,7 +9,11 @@ Requests can either be sent at a fixed rate per client (RPS), a defined sleep ti
 ## Installation
 
 ```shell
-go install github.com/jsmcnair/benchpress
+git clone https://github.com/jsmcnair/benchpress && \
+  cd benchpress && \
+  go build -o bp main.go && \
+  sudo install bp /usr/local/bin && \
+  rm -rf benchpress
 ```
 
 ## Usage
