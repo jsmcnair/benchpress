@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	numClients := flag.Int("c", 1, "Number of client to create. Defaults to 1.")
+	numClients := flag.Int("c", 1, "Number of clients to create. Defaults to 1.")
 	numRequests := flag.Int("n", 1, "Number of requests to make per client. Defaults to 1.")
 	sleep := flag.Duration("s", time.Millisecond, "Time to sleep between requests. Defaults to 1 millisecond.")
 	rps := flag.Int("r", 0, "Requests per second to attempt to make per client. Defaults to 0.")
