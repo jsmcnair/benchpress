@@ -10,25 +10,24 @@ Requests can either be sent at a fixed rate per client (RPS), a defined sleep ti
 
 ```shell
 git clone https://github.com/jsmcnair/benchpress && \
-  cd benchpress && \
-  go build -o bp main.go && \
+  go build -o bp benchpress/main.go && \
   sudo install bp /usr/local/bin && \
-  rm -rf benchpress
+  rm -rf bp benchpress
 ```
 
 ## Usage
 
 ```shell
 -c int
-  	Number of clients to create. Defaults to 1. (default 1)
+ 	Number of clients to create. (default 1)
 -n int
-  	Number of requests to make per client. Defaults to 1. (default 1)
+ 	Number of requests to make per client. (default 1)
 -r int
-  	Requests per second to attempt to make per client. Defaults to 0.
+ 	Requests per second to attempt to make per client. (default 1000)
 -s duration
-  	Time to sleep between requests. Defaults to 1 millisecond. (default 1ms)
+ 	Time to sleep between requests. (default 1ms)
 -u string
-  	URL to make requests to. If not passed, a local built-in server is created and requests are sent to that.
+ 	URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.
 ```
 
 ## Example

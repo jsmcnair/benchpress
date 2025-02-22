@@ -12,11 +12,11 @@ import (
 )
 
 func main() {
-	numClients := flag.Int("c", 1, "Number of clients to create. Defaults to 1.")
-	numRequests := flag.Int("n", 1, "Number of requests to make per client. Defaults to 1.")
-	sleep := flag.Duration("s", time.Millisecond, "Time to sleep between requests. Defaults to 1 millisecond.")
-	rps := flag.Int("r", 0, "Requests per second to attempt to make per client. Defaults to 0.")
-	url := flag.String("u", "", "URL to make requests to. If not passed, a local built-in server is created and requests are sent to that.")
+	numClients := flag.Int("c", 1, "Number of clients to create.")
+	numRequests := flag.Int("n", 1000, "Number of requests to make per client.")
+	sleep := flag.Duration("s", time.Millisecond, "Time to sleep between requests.")
+	rps := flag.Int("r", 1000, "Requests per second to attempt to make per client.")
+	url := flag.String("u", "", "URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.")
 	flag.Parse()
 	totalRequests := *numClients * *numRequests
 
