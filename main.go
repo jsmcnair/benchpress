@@ -17,6 +17,7 @@ func main() {
 	sleep := flag.Duration("s", time.Millisecond, "Time to sleep between requests.")
 	rps := flag.Int("r", 1000, "Requests per second to attempt to make per client.")
 	url := flag.String("u", "", "URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.")
+	method := flag.String("m", http.MethodGet, "HTTP method to use for requests.")
 	flag.Parse()
 	totalRequests := *numClients * *numRequests
 
@@ -50,7 +51,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client(*url, *numRequests, tickTime, statusCounts)
+			client(*url, *method, *numRequests, tickTime, statusCounts)
 		}()
 	}
 	wg.Wait()
@@ -67,7 +68,7 @@ func main() {
 	fmt.Printf("Total requests per second: %f", float64(totalRequests)/finishTime.Sub(startTime).Seconds())
 }
 
-func client(url string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64) {
+func client(url string, method string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64) {
 	// shared HTTP transport and client for efficient connection reuse
 	tr := &http.Transport{
 		MaxIdleConns:          10,
@@ -89,7 +90,7 @@ func client(url string, numRequests int, sleep time.Duration, statusCounts map[i
 
 	for i := 0; i < numRequests; i++ {
 		var resp *http.Response
-		req, _ := http.NewRequest("GET", url, nil)
+		req, _ := http.NewRequest(method, url, nil)
 		resp, err := httpClient.Do(req)
 
 		if err == nil {

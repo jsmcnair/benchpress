@@ -17,17 +17,19 @@ git clone https://github.com/jsmcnair/benchpress && \
 
 ## Usage
 
-```shell
+```
 -c int
- 	Number of clients to create. (default 1)
+     	Number of clients to create. (default 1)
+-m string
+     	HTTP method to use for requests. (default "GET")
 -n int
- 	Number of requests to make per client. (default 1)
+     	Number of requests to make per client. (default 1)
 -r int
- 	Requests per second to attempt to make per client. (default 1000)
+     	Requests per second to attempt to make per client. (default 1000)
 -s duration
- 	Time to sleep between requests. (default 1ms)
+     	Time to sleep between requests. (default 1ms)
 -u string
- 	URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.
+     	URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.
 ```
 
 ## Example
@@ -55,7 +57,7 @@ Total requests per second: 9.996004
 
 ## To do
 
-- [ ] Add support for defining the HTTP method.
+- [x] Add support for defining the HTTP method.
 - [ ] Add support for defining the request body.
 - [ ] Add support for defining the request headers.
 - [ ] Add support for defining the request timeout.
