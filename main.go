@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +12,8 @@ import (
 	"time"
 )
 
+const maxConnections = 10000
+
 func main() {
 	numClients := flag.Int("c", 1, "Number of clients to create.")
 	numRequests := flag.Int("n", 1000, "Number of requests to make per client.")
@@ -18,6 +21,7 @@ func main() {
 	rps := flag.Int("r", 1000, "Requests per second to attempt to make per client.")
 	url := flag.String("u", "", "URL to make requests to. If not passed, a local built-in server is created and requests are sent to it.")
 	method := flag.String("m", http.MethodGet, "HTTP method to use for requests.")
+	insecure := flag.Bool("i", false, "Allow insecure connections.")
 	flag.Parse()
 	totalRequests := *numClients * *numRequests
 
@@ -25,9 +29,8 @@ func main() {
 	fmt.Println("Number of requests per client: ", *numRequests)
 	fmt.Println("Total requests: ", totalRequests)
 
-
 	var tickTime time.Duration
-	if *rps == 0 {	
+	if *rps == 0 {
 		tickTime = *sleep
 	} else {
 		fmt.Println("Requests per second per client: ", *rps)
@@ -39,9 +42,26 @@ func main() {
 		go server()
 		*url = "http://localhost:8080"
 	}
-	
+
 	var statusCounts = make(map[int]*atomic.Uint64)
 	var wg sync.WaitGroup
+
+	conn := *numClients * 100
+	if conn > maxConnections {
+		conn = maxConnections
+	}
+
+	// shared HTTP transport and client for efficient connection reuse
+	transport := &http.Transport{
+		MaxIdleConns:          conn,
+		IdleConnTimeout:       14 * time.Second,
+		ResponseHeaderTimeout: 14 * time.Second,
+		DisableKeepAlives:     false,
+	}
+
+	if *insecure {
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
 
 	fmt.Println("Making requests...")
 	fmt.Println("")
@@ -51,14 +71,13 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			client(*url, *method, *numRequests, tickTime, statusCounts)
+			client(*url, *method, *numRequests, tickTime, statusCounts, transport)
 		}()
 	}
 	wg.Wait()
 	finishTime := time.Now()
 
 	timeTaken := finishTime.Sub(startTime)
-	
 
 	successfulRequests := summariseStatusCounts(statusCounts, totalRequests)
 	fmt.Println()
@@ -68,24 +87,17 @@ func main() {
 	fmt.Printf("Total requests per second: %f", float64(totalRequests)/finishTime.Sub(startTime).Seconds())
 }
 
-func client(url string, method string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64) {
-	// shared HTTP transport and client for efficient connection reuse
-	tr := &http.Transport{
-		MaxIdleConns:          10,
-		IdleConnTimeout:       14 * time.Second,
-		ResponseHeaderTimeout: 14 * time.Second,
-		DisableKeepAlives:     false,
-	}
+func client(url string, method string, numRequests int, sleep time.Duration, statusCounts map[int]*atomic.Uint64, transport *http.Transport) {
 
 	httpClient := &http.Client{
-		Transport: tr,
+		Transport: transport,
 		// do not follow redirects
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
 	defer httpClient.CloseIdleConnections()
-	
+
 	t := time.NewTicker(sleep)
 
 	for i := 0; i < numRequests; i++ {
@@ -112,7 +124,7 @@ func countResponseStatusCode(code int, statusCounts map[int]*atomic.Uint64) {
 
 func summariseStatusCounts(statusCounts map[int]*atomic.Uint64, totalRequests int) uint64 {
 	var successfulRequests uint64
-	
+
 	fmt.Println("Response counts by status code:")
 	for code, count := range statusCounts {
 		loaded := count.Load()
